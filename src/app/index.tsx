@@ -1,48 +1,117 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 type SquareValue = "X" | "O" | null;
 
-const Board: React.FC = () => {
-  const squares = Array(9).fill(null);
+type SquareProps = {
+  value: SquareValue;
+  onPress: () => void;
+};
 
-  const renderSquare = (i: number) => {
-    return (
-      <Pressable
-        key={i}
-        style={styles.square}
-        disabled={true}
-      >
-        <Text style={styles.squareText}>({String(i)})</Text>
-      </Pressable>
-    );
-  };
+type BoardProps = {
+  squares: SquareValue[];
+  onSquareClick: (index: number) => void;
+};
+
+type GameProps = {
+  history: SquareValue[][];
+  stepNumber: number;
+  xIsNext: boolean;
+  onPlay: (index: number) => void;
+};
+
+const Square: React.FC<SquareProps> = ({ value, onPress }) => {
+  const renderValue = value !== null ? value : " ";
+  return (
+    <Pressable
+      style={styles.square}
+      onPress={onPress}
+      disabled={value !== null}
+    >
+      <Text style={styles.squareText}>{renderValue}</Text>
+    </Pressable>
+  );
+};
+
+const Board: React.FC<BoardProps> = ({ squares, onSquareClick }) => {
+  return (
+    <ScrollView>
+      {[0, 1, 2].map((row) => {
+        return (
+          <View style={styles.row} key={row}>
+            {[0, 1, 2].map((col) => {
+              const index = row * 3 + col;
+              return (
+                <Pressable
+                  key={index}
+                  style={styles.square}
+                  onPress={() => onSquareClick(index)}
+                  disabled={squares[index] !== null}
+                >
+                  <Text style={styles.squareText}>{squares[index]}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+};
+
+const calculateWinner = (squares: SquareValue[]): { winner: string | null } => {
+  const lines: number[][] = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [0, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6],
+  ];
+
+  for (let line of lines) {
+    const [a, b, c] = line;
+    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+      return { winner: squares[a] };
+    }
+  }
+  return { winner: null };
+};
+
+const Game: React.FC<GameProps> = ({
+  history,
+  stepNumber,
+  xIsNext,
+  onPlay,
+}) => {
+  const winner = calculateWinner(history[stepNumber] ?? history[0]).winner;
+  const current = history[stepNumber];
+
+  const status = winner
+    ? `Winner: ${winner}`
+    : `Next player: ${xIsNext ? "X" : "O"}`;
 
   return (
-    <View style={styles.container}>
-      <ScrollView>
-        {[0, 1, 2].map((row) => {
-          return (
-            <View style={styles.row} key={row}>
-              {[0, 1, 2].map((col) => {
-                const index = row * 3 + col;
-                return renderSquare(index);
-              })}
-            </View>
-          );
-        })}
-      </ScrollView>
-      <Text style={styles.status}>Board of nine squares</Text>
+    <View style={styles.gameContainer}>
+      <View style={styles.board}>
+        <Board squares={current ?? Array(9).fill(null)} onSquareClick={onPlay} />
+      </View>
+      <View style={styles.statusContainer}>
+        <Text style={styles.statusText}>{status}</Text>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   square: {
     width: 90,
     height: 90,
@@ -60,13 +129,50 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
   },
-  status: {
+  gameContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  board: {
+    backgroundColor: "#eee",
+    width: 300,
+    padding: 10,
+  },
+  statusContainer: {
     marginTop: 20,
+  },
+  statusText: {
     fontSize: 18,
     color: "#333",
   },
 });
 
 export default function Index() {
-  return <Board />;
+  const [history, setHistory] = React.useState<SquareValue[][]>([Array(9).fill(null)]);
+  const [stepNumber, setStepNumber] = React.useState(0);
+  const [xIsNext, setXIsNext] = React.useState(true);
+
+  const onPlay = (index: number) => {
+    const historyPoint = history.slice(0, stepNumber + 1);
+    const current = historyPoint[stepNumber];
+    const squares = current.slice();
+    squares[index] = xIsNext ? "X" : "O";
+
+    setHistory([
+      ...historyPoint,
+      squares,
+    ]);
+    setStepNumber(stepNumber + 1);
+    setXIsNext(!xIsNext);
+  };
+
+  return (
+    <Game
+      history={history}
+      stepNumber={stepNumber}
+      xIsNext={xIsNext}
+      onPlay={onPlay}
+    />
+  );
 }
