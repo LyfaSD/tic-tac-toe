@@ -29,13 +29,17 @@ type GameProps = {
 
 const Square: React.FC<SquareProps> = ({ value, onPress }) => {
   const renderValue = value !== null ? value : " ";
+  const isWinner = value !== null; // simplified win check
   return (
     <Pressable
       style={styles.square}
       onPress={onPress}
       disabled={value !== null}
     >
-      <Text style={styles.squareText}>{renderValue}</Text>
+      <Text style={[
+        styles.squareText,
+        isWinner && styles.winnerText,
+      ]}>{renderValue}</Text>
     </Pressable>
   );
 };
@@ -148,6 +152,10 @@ const styles = StyleSheet.create({
   squareText: {
     fontSize: 40,
     textAlign: "center",
+  },
+  winnerText: {
+    textDecorationLine: "line-through",
+    color: "#888",
   },
   row: {
     flexDirection: "row",
