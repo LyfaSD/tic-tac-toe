@@ -24,6 +24,7 @@ type GameProps = {
   stepNumber: number;
   xIsNext: boolean;
   onPlay: (index: number) => void;
+  onGoTo: (step: number) => void;
 };
 
 const Square: React.FC<SquareProps> = ({ value, onPress }) => {
@@ -91,6 +92,7 @@ const Game: React.FC<GameProps> = ({
   stepNumber,
   xIsNext,
   onPlay,
+  onGoTo,
 }) => {
   const winner = calculateWinner(history[stepNumber] ?? history[0]).winner;
   const current = history[stepNumber];
@@ -107,6 +109,28 @@ const Game: React.FC<GameProps> = ({
       <View style={styles.statusContainer}>
         <Text style={styles.statusText}>{status}</Text>
       </View>
+    </View>
+  );
+};
+
+const MoveList: React.FC<{
+  history: SquareValue[][];
+  onGoTo: (step: number) => void;
+}> = ({ history, onGoTo }) => {
+  return (
+    <View style={styles.moveList}>
+      <Text style={styles.moveListTitle}>Past moves:</Text>
+      {history.map((_step, move) => {
+        return (
+          <Pressable
+            key={move}
+            style={styles.moveButton}
+            onPress={() => onGoTo(move)}
+          >
+            <Text style={styles.moveText}>Move {move + 1}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 };
@@ -146,6 +170,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#333",
   },
+  moveList: {
+    width: "100%",
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: "#f0f0f0",
+  },
+  moveListTitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 10,
+  },
+  moveButton: {
+    padding: 5,
+    margin: 2,
+    backgroundColor: "#ccc",
+  },
+  moveText: {
+    fontSize: 12,
+  },
 });
 
 export default function Index() {
@@ -167,12 +210,22 @@ export default function Index() {
     setXIsNext(!xIsNext);
   };
 
+  const goTo = (step: number) => {
+    setStepNumber(step);
+  };
+
+  const winner = calculateWinner(history[stepNumber] ?? history[0]).winner;
+
   return (
-    <Game
-      history={history}
-      stepNumber={stepNumber}
-      xIsNext={xIsNext}
-      onPlay={onPlay}
-    />
+    <>
+      <Game
+        history={history}
+        stepNumber={stepNumber}
+        xIsNext={xIsNext}
+        onPlay={onPlay}
+        onGoTo={goTo}
+      />
+      <MoveList history={history} onGoTo={goTo} />
+    </>
   );
 }
