@@ -21,4 +21,4 @@ Built a Tic-Tac-Toe game following the [React tutorial](https://react.dev/learn/
 npx expo start
 ```
 
-Use Expo Go on your device or the web simulator to play.
+Use Expo Go on your device or the web simulator to play.# tic-tac-toe
