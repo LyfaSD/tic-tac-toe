@@ -7,233 +7,323 @@ import {
   View,
 } from "react-native";
 
+import { useAppTheme } from "@/contexts/theme-context";
+
 type SquareValue = "X" | "O" | null;
 
 type SquareProps = {
   value: SquareValue;
+  disabled: boolean;
   onPress: () => void;
 };
 
 type BoardProps = {
   squares: SquareValue[];
+  disabled: boolean;
   onSquareClick: (index: number) => void;
 };
 
 type GameProps = {
   history: SquareValue[][];
-  stepNumber: number;
+  currentMove: number;
   xIsNext: boolean;
   onPlay: (index: number) => void;
   onGoTo: (step: number) => void;
+  onRestart: () => void;
 };
 
-const Square: React.FC<SquareProps> = ({ value, onPress }) => {
-  const renderValue = value !== null ? value : " ";
-  const isWinner = value !== null; // simplified win check
+type WinnerResult = {
+  winner: SquareValue;
+  winningLine: number[] | null;
+};
+
+const WINNING_LINES = [
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 3, 6],
+  [1, 4, 7],
+  [2, 5, 8],
+  [0, 4, 8],
+  [2, 4, 6],
+];
+
+const Square: React.FC<SquareProps> = ({ value, disabled, onPress }) => {
+  const { colors } = useAppTheme();
+  const valueColor =
+    value === "X" ? colors.x : value === "O" ? colors.o : colors.text;
+
   return (
     <Pressable
-      style={styles.square}
+      accessibilityRole="button"
+      accessibilityLabel={value ? `Square ${value}` : "Empty square"}
+      style={[
+        styles.square,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
       onPress={onPress}
-      disabled={value !== null}
+      disabled={disabled || value !== null}
     >
-      <Text style={[
-        styles.squareText,
-        isWinner && styles.winnerText,
-      ]}>{renderValue}</Text>
+      <Text style={[styles.squareText, { color: valueColor }]}>{value}</Text>
     </Pressable>
   );
 };
 
-const Board: React.FC<BoardProps> = ({ squares, onSquareClick }) => {
-  return (
-    <ScrollView>
-      {[0, 1, 2].map((row) => {
-        return (
-          <View style={styles.row} key={row}>
-            {[0, 1, 2].map((col) => {
-              const index = row * 3 + col;
-              return (
-                <Pressable
-                  key={index}
-                  style={styles.square}
-                  onPress={() => onSquareClick(index)}
-                  disabled={squares[index] !== null}
-                >
-                  <Text style={styles.squareText}>{squares[index]}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        );
-      })}
-    </ScrollView>
-  );
-};
+const Board: React.FC<BoardProps> = ({
+  squares,
+  disabled,
+  onSquareClick,
+}) => (
+  <View style={styles.board}>
+    {[0, 1, 2].map((row) => (
+      <View style={styles.row} key={row}>
+        {[0, 1, 2].map((column) => {
+          const index = row * 3 + column;
+          return (
+            <Square
+              key={index}
+              value={squares[index]}
+              disabled={disabled}
+              onPress={() => onSquareClick(index)}
+            />
+          );
+        })}
+      </View>
+    ))}
+  </View>
+);
 
-const calculateWinner = (squares: SquareValue[]): { winner: string | null } => {
-  const lines: number[][] = [
-    [0, 1, 2],
-    [3, 4, 5],
-    [6, 7, 8],
-    [0, 3, 6],
-    [1, 4, 7],
-    [2, 5, 8],
-    [0, 4, 8],
-    [2, 4, 6],
-  ];
-
-  for (let line of lines) {
-    const [a, b, c] = line;
-    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-      return { winner: squares[a] };
+const calculateWinner = (squares: SquareValue[]): WinnerResult => {
+  for (const line of WINNING_LINES) {
+    const [first, second, third] = line;
+    if (
+      squares[first] !== null &&
+      squares[first] === squares[second] &&
+      squares[first] === squares[third]
+    ) {
+      return { winner: squares[first], winningLine: line };
     }
   }
-  return { winner: null };
+
+  return { winner: null, winningLine: null };
 };
 
 const Game: React.FC<GameProps> = ({
   history,
-  stepNumber,
+  currentMove,
   xIsNext,
   onPlay,
   onGoTo,
+  onRestart,
 }) => {
-  const winner = calculateWinner(history[stepNumber] ?? history[0]).winner;
-  const current = history[stepNumber];
-
+  const { colors } = useAppTheme();
+  const currentSquares = history[currentMove];
+  const { winner } = calculateWinner(currentSquares);
+  const isDraw = !winner && currentSquares.every((square) => square !== null);
   const status = winner
     ? `Winner: ${winner}`
-    : `Next player: ${xIsNext ? "X" : "O"}`;
+    : isDraw
+      ? "The game is a draw"
+      : `Next player: ${xIsNext ? "X" : "O"}`;
 
   return (
-    <View style={styles.gameContainer}>
-      <View style={styles.board}>
-        <Board squares={current ?? Array(9).fill(null)} onSquareClick={onPlay} />
-      </View>
-      <View style={styles.statusContainer}>
-        <Text style={styles.statusText}>{status}</Text>
+    <View style={styles.content}>
+      <Text style={[styles.heading, { color: colors.text }]}>Tic-Tac-Toe</Text>
+      <Board
+        squares={currentSquares}
+        disabled={Boolean(winner) || isDraw}
+        onSquareClick={onPlay}
+      />
+      <Text style={[styles.statusText, { color: colors.text }]}>{status}</Text>
+      <Pressable
+        accessibilityRole="button"
+        style={[styles.restartButton, { backgroundColor: colors.accent }]}
+        onPress={onRestart}
+      >
+        <Text style={[styles.restartText, { color: colors.accentContrast }]}>
+          Restart game
+        </Text>
+      </Pressable>
+      <View
+        style={[
+          styles.moveList,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.moveListTitle, { color: colors.muted }]}>
+          Game history
+        </Text>
+        {history.map((_step, move) => {
+          const isCurrentMove = move === currentMove;
+          return (
+            <Pressable
+              key={move}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isCurrentMove }}
+              style={[
+                styles.moveButton,
+                {
+                  backgroundColor: isCurrentMove
+                    ? colors.accent
+                    : colors.surfaceAlt,
+                },
+              ]}
+              onPress={() => onGoTo(move)}
+            >
+              <Text
+                style={[
+                  styles.moveText,
+                  {
+                    color: isCurrentMove
+                      ? colors.accentContrast
+                      : colors.text,
+                  },
+                ]}
+              >
+                {move === 0 ? "Go to game start" : `Go to move ${move}`}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
 };
 
-const MoveList: React.FC<{
-  history: SquareValue[][];
-  onGoTo: (step: number) => void;
-}> = ({ history, onGoTo }) => {
+export default function GameScreen() {
+  const [history, setHistory] = React.useState<SquareValue[][]>([
+    Array(9).fill(null),
+  ]);
+  const [currentMove, setCurrentMove] = React.useState(0);
+  const xIsNext = currentMove % 2 === 0;
+  const currentSquares = history[currentMove];
+  const isDraw =
+    !calculateWinner(currentSquares).winner &&
+    currentSquares.every((square) => square !== null);
+
+  React.useEffect(() => {
+    if (!isDraw) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setHistory([Array(9).fill(null)]);
+      setCurrentMove(0);
+    }, 1500);
+
+    return () => clearTimeout(timeout);
+  }, [isDraw]);
+
+  const restartGame = () => {
+    setHistory([Array(9).fill(null)]);
+    setCurrentMove(0);
+  };
+
+  const handleClick = (index: number) => {
+    if (
+      calculateWinner(currentSquares).winner ||
+      isDraw ||
+      currentSquares[index] !== null
+    ) {
+      return;
+    }
+
+    const nextSquares = currentSquares.slice();
+    nextSquares[index] = xIsNext ? "X" : "O";
+    const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
+
+    setHistory(nextHistory);
+    setCurrentMove(nextHistory.length - 1);
+  };
+
   return (
-    <View style={styles.moveList}>
-      <Text style={styles.moveListTitle}>Past moves:</Text>
-      {history.map((_step, move) => {
-        return (
-          <Pressable
-            key={move}
-            style={styles.moveButton}
-            onPress={() => onGoTo(move)}
-          >
-            <Text style={styles.moveText}>Move {move + 1}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.screenContent}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Game
+        history={history}
+        currentMove={currentMove}
+        xIsNext={xIsNext}
+        onPlay={handleClick}
+        onGoTo={setCurrentMove}
+        onRestart={restartGame}
+      />
+    </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  square: {
-    width: 90,
-    height: 90,
-    borderWidth: 1,
-    borderColor: "#999",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  squareText: {
-    fontSize: 40,
-    textAlign: "center",
-  },
-  winnerText: {
-    textDecorationLine: "line-through",
-    color: "#888",
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  gameContainer: {
+  screen: {
     flex: 1,
+  },
+  screenContent: {
+    flexGrow: 1,
+    padding: 20,
+  },
+  content: {
     alignItems: "center",
-    justifyContent: "center",
+    width: "100%",
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 20,
   },
   board: {
-    backgroundColor: "#eee",
-    width: 300,
-    padding: 10,
+    width: "100%",
+    maxWidth: 330,
+    aspectRatio: 1,
   },
-  statusContainer: {
-    marginTop: 20,
+  row: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  square: {
+    flex: 1,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  squareText: {
+    fontSize: 48,
+    fontWeight: "700",
   },
   statusText: {
     fontSize: 18,
-    color: "#333",
+    fontWeight: "600",
+    marginTop: 16,
+  },
+  restartButton: {
+    borderRadius: 8,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  restartText: {
+    fontSize: 15,
+    fontWeight: "600",
   },
   moveList: {
-    width: "100%",
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: "#f0f0f0",
+    alignSelf: "stretch",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 24,
+    padding: 12,
   },
   moveListTitle: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 10,
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
   },
   moveButton: {
-    padding: 5,
-    margin: 2,
-    backgroundColor: "#ccc",
+    borderRadius: 8,
+    marginVertical: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   moveText: {
-    fontSize: 12,
+    fontSize: 15,
   },
 });
-
-export default function Index() {
-  const [history, setHistory] = React.useState<SquareValue[][]>([Array(9).fill(null)]);
-  const [stepNumber, setStepNumber] = React.useState(0);
-  const [xIsNext, setXIsNext] = React.useState(true);
-
-  const onPlay = (index: number) => {
-    const historyPoint = history.slice(0, stepNumber + 1);
-    const current = historyPoint[stepNumber];
-    const squares = current.slice();
-    squares[index] = xIsNext ? "X" : "O";
-
-    setHistory([
-      ...historyPoint,
-      squares,
-    ]);
-    setStepNumber(stepNumber + 1);
-    setXIsNext(!xIsNext);
-  };
-
-  const goTo = (step: number) => {
-    setStepNumber(step);
-  };
-
-  const winner = calculateWinner(history[stepNumber] ?? history[0]).winner;
-
-  return (
-    <>
-      <Game
-        history={history}
-        stepNumber={stepNumber}
-        xIsNext={xIsNext}
-        onPlay={onPlay}
-        onGoTo={goTo}
-      />
-      <MoveList history={history} onGoTo={goTo} />
-    </>
-  );
-}
